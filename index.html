@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="vi" ng-app="pdfExamApp" ng-controller="ExamController" ng-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{app.name}} - AngularJS</title>
+    
+    <!-- CSS Libraries -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.0/themes/base/jquery-ui.css">
+    
+    <!-- JavaScript Libraries -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-sortable/0.19.0/sortable.min.js"></script>
+    <!-- html2pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        /* Giữ nguyên phần style cũ, không thay đổi */
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .app-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 1rem 0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .main-container {
+            padding: 2rem 0;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            margin-bottom: 1.5rem;
+        }
+        
+        .nav-tabs {
+            border-bottom: 2px solid #dee2e6;
+        }
+        
+        .nav-tabs .nav-link {
+            border: none;
+            color: #6c757d;
+            font-weight: 500;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: var(--primary);
+            border-bottom: 3px solid var(--primary);
+            background: transparent;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border: none;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+        
+        .question-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+            position: relative;
+            width: 100%;
+            overflow-wrap: break-word;
+        }
+        
+        .question-card.hidden {
+            background-color: #f8f9fa;
+            opacity: 0.7;
+            border-left: 4px solid #6c757d;
+        }
+        
+        .question-card.hidden .question-number {
+            background: #6c757d;
+        }
+        
+        .question-card:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .question-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            font-weight: bold;
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+        
+        .option-item {
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            border-left: 4px solid #e9ecef;
+            background: #f8f9fa;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+            flex-wrap: wrap;
+        }
+        
+        .option-item:hover {
+            background: #e9ecef;
+        }
+        
+        .option-item.correct {
+            border-left-color: var(--success);
+            background: #d1fae5;
+        }
+        
+        .option-label {
+            min-width: 30px;
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        .option-letter {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            text-align: center;
+            line-height: 30px;
+            background: #e9ecef;
+            border-radius: 50%;
+            font-weight: bold;
+        }
+        
+        .multiple-choice-badge {
+            background: var(--warning);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-left: 10px;
+        }
+        
+        .preview-container {
+            max-height: 700px;
+            overflow-y: auto;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: white;
+        }
+        
+        /* Bản sao để xuất PDF - style giống preview */
+        .pdf-export-container {
+            max-height: none !important;
+            overflow-y: visible !important;
+            height: auto !important;
+            padding: 2rem;
+            background: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .pdf-export-container h1 {
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--primary);
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+        .pdf-export-container h3 {
+            font-size: 18px;
+            margin: 15px 0 10px;
+            color: #2c3e50;
+        }
+        .pdf-export-container p {
+            font-size: 14px;
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        .pdf-export-container .option-letter {
+            display: inline-block;
+            width: 25px;
+            height: 25px;
+            line-height: 25px;
+            text-align: center;
+            background: #e9ecef;
+            border-radius: 50%;
+            margin-right: 8px;
+            font-weight: bold;
+        }
+        .pdf-export-container .preview-option {
+            font-size: 14px;
+            margin: 8px 0;
+            padding: 8px;
+            border-left: 4px solid transparent;
+        }
+        .pdf-export-container .preview-option.correct {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        .pdf-export-container .badge {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: #28a745;
+            color: white;
+        }
+        .pdf-export-container .instructions {
+            background: #e9f7fe;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 5px solid var(--info);
+        }
+        
+        .preview-question {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .preview-question.hidden {
+            background-color: #f8f9fa;
+            border-left: 4px solid #6c757d;
+            padding-left: 10px;
+        }
+        
+        .preview-option {
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .preview-option.correct {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+        }
+        
+        .alert-container {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            z-index: 9998;
+            max-width: 400px;
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 1.5rem;
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .option-actions {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #dee2e6;
+        }
+        
+        .ai-progress-bar {
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+        }
+        
+        .hidden-badge {
+            background-color: #6c757d !important;
+        }
+        
+        .question-config-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .drag-container {
+            min-height: 500px;
+        }
+        
+        .drag-item {
+            cursor: move;
+            transition: all 0.3s ease;
+            margin-bottom: 0.5rem;
+        }
+        
+        .drag-item.ui-sortable-helper {
+            transform: rotate(3deg);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .drag-item.ui-sortable-placeholder {
+            background-color: #e9ecef;
+            border: 2px dashed #dee2e6;
+            visibility: visible !important;
+            height: 60px;
+        }
+        
+        .drag-handle {
+            cursor: move;
+            color: #6c757d;
+            padding: 5px;
+        }
+        
+        .drag-handle:hover {
+            color: var(--primary);
+        }
+        
+        .question-type-badge {
+            font-size: 0.75rem;
+        }
+        
+        .badge-reading { background-color: #3b82f6; }
+        .badge-grammar { background-color: #10b981; }
+        .badge-vocabulary { background-color: #8b5cf6; }
+        .badge-listening { background-color: #f59e0b; }
+        
+        .stats-progress {
+            height: 10px;
+        }
+        
+        .template-card {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .template-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-5px);
+        }
+        
+        .template-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 5px;
+            z-index: 10;
+        }
+        
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .question-card.hidden {
+                display: none !important;
+            }
+            .preview-question.hidden {
+                display: none !important;
+            }
+        }
+        
+        .bg-purple {
+            background-color: #8b5cf6 !important;
+        }
+        
+        .form-check-input:checked {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        .form-check-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .test-mode-toggle {
+            margin-left: 15px;
+            padding: 5px 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .pdf-button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+        }
+        .pdf-button:hover {
+            background-color: #bb2d3b;
+        }
+
+        .editing-badge {
+            background-color: #ffc107;
+            color: #212529;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        /* Đảm bảo header soạn đề luôn trên 1 hàng */
+        .card-header .d-flex {
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        .card-header h5 {
+            margin-right: auto;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 0;
+        }
+        .action-buttons {
+            flex-shrink: 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .card-header .d-flex {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .card-header h5 {
+                margin-right: 0;
+                justify-content: center;
+            }
+            .action-buttons {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" ng-show="ui.isLoading">
+        <div class="text-center">
+            <div class="spinner-border text-light mb-3" style="width: 3rem; height: 3rem;" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h4>{{ui.loadingMessage || 'Đang xử lý...'}}</h4>
+            <div class="progress mt-3" style="width: 300px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated ai-progress-bar" 
+                     role="progressbar" 
+                     ng-style="{'width': ui.uploadProgress + '%'}">
+                    {{ui.uploadProgress}}%
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerts Container -->
+    <div class="alert-container">
+        <div class="alert alert-{{alert.type}} alert-dismissible shadow" 
+             ng-repeat="alert in ui.alerts track by alert.id">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-{{getAlertIcon(alert.type)}} me-2"></i>
+                <div>{{alert.message}}</div>
+            </div>
+            <button type="button" class="btn-close" ng-click="closeAlert(alert.id)"></button>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="app-header">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-robot fa-2x me-3"></i>
+                    <div>
+                        <h1 class="h3 mb-0">{{app.name}}</h1>
+                        <small class="opacity-75">Tạo đề thi thông minh với AI</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-question-circle me-1"></i>
+                        {{exam.questions.length}} câu hỏi
+                    </span>
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-eye me-1"></i>
+                        {{getVisibleQuestionsCount()}} hiển thị
+                    </span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <div class="container">
+            <!-- Tabs Navigation -->
+            <ul class="nav nav-tabs mb-4">
+                <li class="nav-item">
+                    <a class="nav-link" ng-class="{'active': ui.activeTab === 'questions'}" 
+                       ng-click="switchToTab('questions')">
+                        <i class="fas fa-edit me-2"></i>Soạn đề thi
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" ng-class="{'active': ui.activeTab === 'arrange'}" 
+                       ng-click="switchToTab('arrange'); loadArrangeView()">
+                        <i class="fas fa-sort me-2"></i>Sắp xếp & Thống kê
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" ng-class="{'active': ui.activeTab === 'preview'}" 
+                       ng-click="switchToTab('preview'); updatePreview()">
+                        <i class="fas fa-eye me-2"></i>Xem trước
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" ng-class="{'active': ui.activeTab === 'ai'}" 
+                       ng-click="switchToTab('ai')">
+                        <i class="fas fa-robot me-2"></i>AI Tạo đề
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" ng-class="{'active': ui.activeTab === 'templates'}" 
+                       ng-click="switchToTab('templates')">
+                        <i class="fas fa-save me-2"></i>Quản lý mẫu
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Questions Tab -->
+            <div ng-show="ui.activeTab === 'questions'" class="tab-content">
+                <!-- Nội dung giữ nguyên, không thay đổi -->
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div ng-if="ui.editingTemplateId" class="alert alert-warning alert-dismissible fade show m-3" role="alert">
+                                <i class="fas fa-pen me-2"></i>
+                                <strong>Đang sửa mẫu:</strong> {{ui.editingTemplateName}}
+                                <button type="button" class="btn-close" ng-click="cancelEditing()" aria-label="Close"></button>
+                            </div>
+                            <div class="card-header">
+                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                        <h5 class="mb-0 d-flex align-items-center gap-2">
+                                            <i class="fas fa-list"></i>
+                                            <span>Danh sách câu hỏi</span>
+                                        </h5>
+                                        <span class="badge bg-primary">{{exam.questions.length}}</span>
+                                        <span class="badge bg-success">{{getVisibleQuestionsCount()}} hiển thị</span>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2 action-buttons">
+                                        <button class="btn btn-success btn-sm" ng-click="addQuestion()">
+                                            <i class="fas fa-plus me-1"></i>Thêm câu hỏi
+                                        </button>
+                                        <button class="btn btn-outline-primary btn-sm" ng-click="switchToTab('arrange'); loadArrangeView()">
+                                            <i class="fas fa-sort me-1"></i>Sắp xếp
+                                        </button>
+                                        <button class="btn btn-outline-danger btn-sm" ng-click="downloadPDFFromPreview()" title="Tải PDF">
+                                            <i class="fas fa-file-pdf me-1"></i>PDF
+                                        </button>
+                                        <button ng-if="ui.editingTemplateId" class="btn btn-warning btn-sm" ng-click="updateTemplate()">
+                                            <i class="fas fa-save me-1"></i>Cập nhật
+                                        </button>
+                                        <button ng-if="ui.editingTemplateId" class="btn btn-secondary btn-sm" ng-click="cancelEditing()">
+                                            <i class="fas fa-times me-1"></i>Hủy
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div ng-if="exam.questions.length === 0" class="text-center py-5">
+                                    <i class="fas fa-question-circle fa-4x text-muted mb-3"></i>
+                                    <h4 class="text-muted">Chưa có câu hỏi nào</h4>
+                                    <p class="text-muted mb-4">Bắt đầu bằng cách thêm câu hỏi mới</p>
+                                    <button class="btn btn-primary btn-lg" ng-click="addQuestion()">
+                                        <i class="fas fa-plus me-2"></i>Thêm câu hỏi đầu tiên
+                                    </button>
+                                </div>
+
+                                <div ng-repeat="q in exam.questions track by q.id" 
+                                     class="question-card" 
+                                     id="question_{{q.id}}"
+                                     ng-class="{'hidden': q.isHidden}">
+                                    <div class="d-flex align-items-start">
+                                        <div class="question-number">{{$index + 1}}</div>
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap">
+                                                <div class="mb-2 mb-md-0">
+                                                    <span ng-if="q.isHidden" class="badge hidden-badge me-2">
+                                                        <i class="fas fa-eye-slash me-1"></i>Ẩn
+                                                    </span>
+                                                    <span class="badge question-type-badge me-2" 
+                                                          ng-class="'badge-' + q.type.toLowerCase()">
+                                                        {{q.type === 'reading' ? 'Đọc hiểu' : 
+                                                          q.type === 'grammar' ? 'Ngữ pháp' : 
+                                                          q.type === 'vocabulary' ? 'Từ vựng' : 'Nghe hiểu'}}
+                                                    </span>
+                                                    <span class="badge" 
+                                                          ng-class="{
+                                                              'bg-success': q.difficulty === 'easy',
+                                                              'bg-warning': q.difficulty === 'medium',
+                                                              'bg-danger': q.difficulty === 'hard'
+                                                          }">
+                                                        {{q.difficulty === 'easy' ? 'Dễ' : 
+                                                          q.difficulty === 'medium' ? 'Trung bình' : 'Khó'}}
+                                                    </span>
+                                                    <span ng-if="q.isMultipleChoice" class="multiple-choice-badge">
+                                                        <i class="fas fa-tasks me-1"></i>Nhiều đáp án
+                                                    </span>
+                                                </div>
+                                                <div class="action-buttons">
+                                                    <button class="btn btn-sm" 
+                                                            ng-class="q.isHidden ? 'btn-outline-secondary' : 'btn-outline-dark'"
+                                                            ng-click="toggleQuestionVisibility(q)"
+                                                            title="Ẩn/Hiện câu hỏi">
+                                                        <i class="fas" ng-class="q.isHidden ? 'fa-eye' : 'fa-eye-slash'"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-primary" 
+                                                            ng-click="moveQuestionUp($index)"
+                                                            ng-disabled="$first">
+                                                        <i class="fas fa-arrow-up"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-primary" 
+                                                            ng-click="moveQuestionDown($index)"
+                                                            ng-disabled="$last">
+                                                        <i class="fas fa-arrow-down"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-success" 
+                                                            ng-click="duplicateQuestion(q)">
+                                                        <i class="fas fa-copy"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger" 
+                                                            ng-click="removeQuestion(q.id)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div class="question-config-section mb-3">
+                                                <div class="row g-2">
+                                                    <div class="col-md-4">
+                                                        <label class="form-label fw-bold small">Loại câu hỏi</label>
+                                                        <select class="form-select form-select-sm" 
+                                                                ng-model="q.type"
+                                                                ng-change="updatePreview(); calculateStats()">
+                                                            <option value="reading">Đọc hiểu</option>
+                                                            <option value="grammar">Ngữ pháp</option>
+                                                            <option value="vocabulary">Từ vựng</option>
+                                                            <option value="listening">Nghe hiểu</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label fw-bold small">Độ khó</label>
+                                                        <select class="form-select form-select-sm" 
+                                                                ng-model="q.difficulty"
+                                                                ng-change="updatePreview(); calculateStats()">
+                                                            <option value="easy">Dễ</option>
+                                                            <option value="medium">Trung bình</option>
+                                                            <option value="hard">Khó</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label fw-bold small">Ẩn câu hỏi</label>
+                                                        <div class="form-check form-switch">
+                                                            <input class="form-check-input" type="checkbox" 
+                                                                   ng-model="q.isHidden"
+                                                                   ng-change="updatePreview(); calculateStats()"
+                                                                   id="hide_{{q.id}}">
+                                                            <label class="form-check-label small" for="hide_{{q.id}}">
+                                                                Ẩn trong đề thi
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Nội dung câu hỏi</label>
+                                                <textarea class="form-control" 
+                                                          ng-model="q.text"
+                                                          rows="3"
+                                                          placeholder="Nhập nội dung câu hỏi..."
+                                                          ng-change="updatePreview()"></textarea>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           ng-model="q.isMultipleChoice"
+                                                           id="multi_{{q.id}}"
+                                                           ng-change="onMultipleChoiceToggle(q)">
+                                                    <label class="form-check-label fw-bold" for="multi_{{q.id}}">
+                                                        <i class="fas fa-tasks me-1"></i>Cho phép chọn nhiều đáp án
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Các lựa chọn (Đánh dấu vào ô để chọn đáp án đúng)</label>
+                                                <div ng-repeat="option in q.options track by $index" 
+                                                     class="option-item"
+                                                     ng-class="{'correct': option.isCorrect}">
+                                                    <div class="form-check" style="min-width: 30px;">
+                                                        <input class="form-check-input" 
+                                                               type="{{q.isMultipleChoice ? 'checkbox' : 'radio'}}"
+                                                               name="correct_{{q.id}}"
+                                                               ng-model="option.isCorrect"
+                                                               ng-change="updatePreview()">
+                                                    </div>
+                                                    <div class="option-label">{{getOptionLetter($index)}}.</div>
+                                                    <div style="flex: 1; min-width: 150px;">
+                                                        <input type="text" class="form-control" 
+                                                               ng-model="option.text"
+                                                               placeholder="Nhập nội dung lựa chọn {{getOptionLetter($index)}}"
+                                                               ng-change="updatePreview()">
+                                                    </div>
+                                                    <button class="btn btn-sm btn-outline-danger" 
+                                                            ng-click="removeOption(q, $index)"
+                                                            ng-disabled="q.options.length <= 2">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div class="option-actions">
+                                                <button class="btn btn-sm btn-outline-primary" 
+                                                        ng-click="addOption(q)"
+                                                        ng-disabled="q.options.length >= 10">
+                                                    <i class="fas fa-plus me-1"></i>Thêm lựa chọn
+                                                </button>
+                                                <small class="text-muted ms-3">(Tối thiểu 2, tối đa 10 lựa chọn)</small>
+                                                <small class="text-success ms-3">
+                                                    <i class="fas fa-check-circle me-1"></i>
+                                                    Số đáp án đúng: {{countCorrectOptions(q)}}
+                                                </small>
+                                            </div>
+
+                                            <div class="mt-3">
+                                                <label class="form-label fw-bold">Giải thích đáp án (tùy chọn)</label>
+                                                <textarea class="form-control" 
+                                                          ng-model="q.explanation"
+                                                          rows="2"
+                                                          placeholder="Giải thích tại sao đáp án này đúng..."
+                                                          ng-change="updatePreview()"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <i class="fas fa-info-circle me-2"></i>Thông tin đề thi
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Tiêu đề đề thi</label>
+                                    <input type="text" class="form-control" 
+                                           ng-model="exam.title"
+                                           ng-change="updatePreview()"
+                                           placeholder="VD: Đề thi Tiếng Anh">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Môn học</label>
+                                    <input type="text" class="form-control" disabled
+                                           ng-model="exam.subject"
+                                           ng-change="updatePreview()"
+                                           placeholder="VD: Tiếng Anh">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Thời gian (phút)</label>
+                                    <input type="number" class="form-control" 
+                                           ng-model="exam.duration"
+                                           ng-change="updatePreview()"
+                                           min="1" value="60">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Hướng dẫn</label>
+                                    <textarea class="form-control" 
+                                              ng-model="exam.instructions"
+                                              ng-change="updatePreview()"
+                                              rows="3"
+                                              placeholder="Hướng dẫn làm bài..."></textarea>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" 
+                                           ng-model="exam.showAnswerKey"
+                                           ng-change="updatePreview()"
+                                           id="showAnswers" checked>
+                                    <label class="form-check-label" for="showAnswers">
+                                        Hiển thị đáp án trong preview
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           ng-model="exam.showHiddenQuestions"
+                                           ng-change="updatePreview()"
+                                           id="showHidden">
+                                    <label class="form-check-label" for="showHidden">
+                                        Hiển thị câu hỏi đang ẩn trong preview
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="fas fa-chart-bar me-2"></i>Thống kê
+                            </div>
+                            <div class="card-body">
+                                <div class="row text-center mb-3">
+                                    <div class="col-6">
+                                        <div class="stat-number">{{exam.questions.length}}</div>
+                                        <div class="text-muted">Tổng câu hỏi</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="stat-number text-success">{{getVisibleQuestionsCount()}}</div>
+                                        <div class="text-muted">Hiển thị</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <small class="text-muted d-block mb-2">Phân bổ loại câu hỏi:</small>
+                                    <div class="mb-2">
+                                        <div class="d-flex justify-content-between">
+                                            <small>Đọc hiểu</small>
+                                            <small>{{getTypeCount('reading')}} câu</small>
+                                        </div>
+                                        <div class="progress stats-progress">
+                                            <div class="progress-bar bg-info" style="width: {{getTypePercentage('reading')}}%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-2">
+                                        <div class="d-flex justify-content-between">
+                                            <small>Ngữ pháp</small>
+                                            <small>{{getTypeCount('grammar')}} câu</small>
+                                        </div>
+                                        <div class="progress stats-progress">
+                                            <div class="progress-bar bg-success" style="width: {{getTypePercentage('grammar')}}%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-2">
+                                        <div class="d-flex justify-content-between">
+                                            <small>Từ vựng</small>
+                                            <small>{{getTypeCount('vocabulary')}} câu</small>
+                                        </div>
+                                        <div class="progress stats-progress">
+                                            <div class="progress-bar bg-purple" style="width: {{getTypePercentage('vocabulary')}}%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-2">
+                                        <div class="d-flex justify-content-between">
+                                            <small>Nghe hiểu</small>
+                                            <small>{{getTypeCount('listening')}} câu</small>
+                                        </div>
+                                        <div class="progress stats-progress">
+                                            <div class="progress-bar bg-warning" style="width: {{getTypePercentage('listening')}}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mt-3">
+                            <div class="card-header">
+                                <i class="fas fa-bolt me-2"></i>Hành động nhanh
+                            </div>
+                            <div class="card-body">
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-primary" ng-click="switchToTab('arrange'); loadArrangeView()">
+                                        <i class="fas fa-sort me-2"></i>Sắp xếp & Thống kê
+                                    </button>
+                                    <button class="btn btn-outline-success" ng-click="saveTemplate()">
+                                        <i class="fas fa-save me-2"></i>Lưu làm mẫu
+                                    </button>
+                                    <button class="btn btn-outline-danger" ng-click="clearAllQuestions()">
+                                        <i class="fas fa-trash me-2"></i>Xóa tất cả
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Arrange Tab -->
+            <div ng-show="ui.activeTab === 'arrange'" class="tab-content">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-sort me-2"></i>Sắp xếp & Thống kê
+                            <small class="text-muted ms-2">(Kéo thả hoặc dùng nút để sắp xếp)</small>
+                        </h5>
+                        <div class="action-buttons">
+                            <button class="btn btn-outline-secondary" ng-click="shuffleArrangeQuestions()" title="Xáo trộn ngẫu nhiên">
+                                <i class="fas fa-random me-1"></i>Xáo trộn
+                            </button>
+                            <button class="btn btn-primary" ng-click="applyArrangeOrder()">
+                                <i class="fas fa-check me-2"></i>Áp dụng thứ tự
+                            </button>
+                            <button class="btn btn-outline-secondary" ng-click="loadArrangeView()">
+                                <i class="fas fa-sync me-2"></i>Làm mới
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-8">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <i class="fas fa-grip-vertical me-2"></i>Kéo thả sắp xếp câu hỏi
+                                    </div>
+                                    <div class="card-body drag-container">
+                                        <div ng-if="arrangeQuestions.length === 0" class="text-center py-5">
+                                            <i class="fas fa-sort fa-4x text-muted mb-3"></i>
+                                            <h4 class="text-muted">Chưa có câu hỏi</h4>
+                                            <p class="text-muted">Thêm câu hỏi trong tab "Soạn đề thi"</p>
+                                        </div>
+                                        
+                                        <div ui-sortable="arrangeSortableOptions" ng-model="arrangeQuestions">
+                                            <div ng-repeat="q in arrangeQuestions track by q.id" 
+                                                 class="drag-item card mb-2">
+                                                <div class="card-body">
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="drag-handle me-3">
+                                                            <i class="fas fa-grip-vertical fa-lg"></i>
+                                                        </div>
+                                                        <div class="flex-grow-1">
+                                                            <div class="d-flex align-items-center mb-2 flex-wrap">
+                                                                <span class="badge bg-primary me-2">#{{$index + 1}}</span>
+                                                                <span class="badge question-type-badge me-2" 
+                                                                      ng-class="'badge-' + q.type.toLowerCase()">
+                                                                    {{q.type === 'reading' ? 'Đọc hiểu' : 
+                                                                      q.type === 'grammar' ? 'Ngữ pháp' : 
+                                                                      q.type === 'vocabulary' ? 'Từ vựng' : 'Nghe hiểu'}}
+                                                                </span>
+                                                                <span class="badge me-2" 
+                                                                      ng-class="{
+                                                                          'bg-success': q.difficulty === 'easy',
+                                                                          'bg-warning': q.difficulty === 'medium',
+                                                                          'bg-danger': q.difficulty === 'hard'
+                                                                      }">
+                                                                    {{q.difficulty === 'easy' ? 'Dễ' : 
+                                                                      q.difficulty === 'medium' ? 'Trung bình' : 'Khó'}}
+                                                                </span>
+                                                                <span ng-if="q.isHidden" class="badge bg-secondary ms-2">
+                                                                    <i class="fas fa-eye-slash me-1"></i>Ẩn
+                                                                </span>
+                                                            </div>
+                                                            <p class="mb-1">{{q.text | limitTo: 100}}{{q.text.length > 100 ? '...' : ''}}</p>
+                                                            <small class="text-muted">
+                                                                {{q.options.length}} lựa chọn • 
+                                                                {{q.isMultipleChoice ? 'Nhiều đáp án' : 'Một đáp án'}} •
+                                                                Đáp án đúng: {{countCorrectOptions(q)}}
+                                                            </small>
+                                                        </div>
+                                                        <div class="action-buttons">
+                                                            <!-- Nút lên/xuống -->
+                                                            <button class="btn btn-sm btn-outline-primary" 
+                                                                    ng-click="moveArrangeQuestionUp($index)"
+                                                                    ng-disabled="$first"
+                                                                    title="Di chuyển lên">
+                                                                <i class="fas fa-arrow-up"></i>
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-primary" 
+                                                                    ng-click="moveArrangeQuestionDown($index)"
+                                                                    ng-disabled="$last"
+                                                                    title="Di chuyển xuống">
+                                                                <i class="fas fa-arrow-down"></i>
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-primary me-1" 
+                                                                    ng-click="goToQuestion(q.id)"
+                                                                    title="Đi đến câu hỏi">
+                                                                <i class="fas fa-edit"></i>
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-danger" 
+                                                                    ng-click="removeQuestionFromArrange(q.id)"
+                                                                    title="Xóa câu hỏi">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-4">
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <i class="fas fa-chart-pie me-2"></i>Thống kê đề thi
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <small class="text-muted d-block mb-2">Tổng quan:</small>
+                                            <div class="row text-center">
+                                                <div class="col-6 mb-2">
+                                                    <div class="stat-number">{{arrangeQuestions.length}}</div>
+                                                    <small class="text-muted">Câu hỏi</small>
+                                                </div>
+                                                <div class="col-6 mb-2">
+                                                    <div class="stat-number text-primary">{{ui.stats.visibleQuestions}}</div>
+                                                    <small class="text-muted">Hiển thị</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <small class="text-muted d-block mb-2">Phân bổ theo loại:</small>
+                                            <div class="mb-2">
+                                                <div class="d-flex justify-content-between">
+                                                    <span class="badge bg-info">Đọc hiểu</span>
+                                                    <small>{{getTypeCount('reading')}} câu</small>
+                                                </div>
+                                            </div>
+                                            <div class="mb-2">
+                                                <div class="d-flex justify-content-between">
+                                                    <span class="badge bg-success">Ngữ pháp</span>
+                                                    <small>{{getTypeCount('grammar')}} câu</small>
+                                                </div>
+                                            </div>
+                                            <div class="mb-2">
+                                                <div class="d-flex justify-content-between">
+                                                    <span class="badge bg-purple">Từ vựng</span>
+                                                    <small>{{getTypeCount('vocabulary')}} câu</small>
+                                                </div>
+                                            </div>
+                                            <div class="mb-2">
+                                                <div class="d-flex justify-content-between">
+                                                    <span class="badge bg-warning">Nghe hiểu</span>
+                                                    <small>{{getTypeCount('listening')}} câu</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <small class="text-muted d-block mb-2">Phân bổ theo độ khó:</small>
+                                            <div class="row text-center">
+                                                <div class="col-4">
+                                                    <div class="stat-number text-success">{{getDifficultyCount('easy')}}</div>
+                                                    <small class="text-muted">Dễ</small>
+                                                </div>
+                                                <div class="col-4">
+                                                    <div class="stat-number text-warning">{{getDifficultyCount('medium')}}</div>
+                                                    <small class="text-muted">TB</small>
+                                                </div>
+                                                <div class="col-4">
+                                                    <div class="stat-number text-danger">{{getDifficultyCount('hard')}}</div>
+                                                    <small class="text-muted">Khó</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mt-3">
+                                            <small class="text-muted d-block mb-2">Thông tin đề thi:</small>
+                                            <div class="small">
+                                                <div class="mb-1">
+                                                    <strong>Tiêu đề:</strong> {{exam.title || 'Chưa đặt'}}
+                                                </div>
+                                                <div class="mb-1">
+                                                    <strong>Môn:</strong> {{exam.subject || 'Chưa đặt'}}
+                                                </div>
+                                                <div class="mb-1">
+                                                    <strong>Thời gian:</strong> {{exam.duration || 60}} phút
+                                                </div>
+                                                <div>
+                                                    <strong>Hướng dẫn:</strong> {{exam.instructions ? 'Có' : 'Không'}}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="card">
+                                    <div class="card-header">
+                                        <i class="fas fa-lightbulb me-2"></i>Gợi ý
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="small mb-2"><strong>Kéo thả:</strong> Kéo biểu tượng <i class="fas fa-grip-vertical"></i> để sắp xếp thứ tự câu hỏi.</p>
+                                        <p class="small mb-2"><strong>Nút mũi tên:</strong> Sử dụng nút lên/xuống để di chuyển từng câu.</p>
+                                        <p class="small mb-2"><strong>Xáo trộn:</strong> Nhấn nút <i class="fas fa-random"></i> để xáo trộn ngẫu nhiên.</p>
+                                        <p class="small mb-0"><strong>Áp dụng:</strong> Nhấn "Áp dụng thứ tự" để lưu thứ tự mới.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview Tab -->
+            <div ng-show="ui.activeTab === 'preview'" class="tab-content">
+                <!-- Giữ nguyên nội dung -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-file-alt me-2"></i>Xem trước đề thi
+                            <small class="text-muted ms-2">(Real-time update)</small>
+                        </h5>
+                        <div class="action-buttons">
+                            <button class="btn btn-outline-primary" ng-click="printPreview()">
+                                <i class="fas fa-print me-2"></i>In
+                            </button>
+                            <button class="btn btn-outline-danger" ng-click="generatePDF()">
+                                <i class="fas fa-file-pdf me-2"></i>Tạo PDF
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="preview-container" id="previewContent">
+                            <div class="text-center mb-4 border-bottom pb-4">
+                                <h1 class="text-primary">{{exam.title || 'ĐỀ THI MẪU'}}</h1>
+                                <div class="row mt-3">
+                                    <div class="col-md-3">
+                                        <strong>Môn:</strong> {{exam.subject || 'Chưa đặt tên'}}
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Thời gian:</strong> {{exam.duration || 60}} phút
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Số câu:</strong> {{getVisibleQuestionsCount()}}
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Loại:</strong> Đề thi trắc nghiệm
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-info" ng-if="exam.instructions">
+                                <h5><i class="fas fa-info-circle me-2"></i>Hướng dẫn:</h5>
+                                <p class="mb-0">{{exam.instructions}}</p>
+                            </div>
+
+                            <div ng-repeat="q in exam.questions track by q.id" 
+                                 class="preview-question"
+                                 ng-class="{'hidden': q.isHidden && !exam.showHiddenQuestions}"
+                                 ng-show="!q.isHidden || exam.showHiddenQuestions">
+                                <div class="d-flex align-items-start mb-2 flex-wrap">
+                                    <h5 class="mb-0 me-3">Câu {{$index + 1}}.</h5>
+                                    <div>
+                                        <span ng-if="q.isHidden" class="badge hidden-badge me-2">
+                                            <i class="fas fa-eye-slash me-1"></i>Ẩn
+                                        </span>
+                                        <span class="badge question-type-badge me-2" 
+                                              ng-class="'badge-' + q.type.toLowerCase()">
+                                            {{q.type === 'reading' ? 'Đọc hiểu' : 
+                                              q.type === 'grammar' ? 'Ngữ pháp' : 
+                                              q.type === 'vocabulary' ? 'Từ vựng' : 'Nghe hiểu'}}
+                                        </span>
+                                        <span ng-if="q.isMultipleChoice" class="badge bg-warning">
+                                            <i class="fas fa-tasks me-1"></i>Chọn nhiều đáp án
+                                        </span>
+                                        <span class="badge ms-2" 
+                                              ng-class="{
+                                                  'bg-success': q.difficulty === 'easy',
+                                                  'bg-warning': q.difficulty === 'medium',
+                                                  'bg-danger': q.difficulty === 'hard'
+                                              }">
+                                            {{q.difficulty === 'easy' ? 'Dễ' : 
+                                              q.difficulty === 'medium' ? 'Trung bình' : 'Khó'}}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <p style="white-space: pre-wrap;" class="lead">{{q.text || '(Câu hỏi chưa có nội dung)'}}</p>
+                                </div>
+
+                                <div class="ms-4">
+                                    <div ng-repeat="option in q.options track by $index" 
+                                         class="preview-option mb-2"
+                                         ng-class="{'correct': exam.showAnswerKey && option.isCorrect}">
+                                        <div class="d-flex align-items-center">
+                                            <span class="option-letter me-3">{{getOptionLetter($index)}}</span>
+                                            <span style="white-space: pre-wrap;">{{option.text || '(Lựa chọn trống)'}}</span>
+                                            <span ng-if="exam.showAnswerKey && option.isCorrect" 
+                                                  class="badge bg-success ms-2">
+                                                <i class="fas fa-check me-1"></i>Đúng
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div ng-if="exam.showAnswerKey && q.explanation" class="mt-3 p-3 bg-light rounded">
+                                    <h6><i class="fas fa-lightbulb me-2"></i>Giải thích:</h6>
+                                    <p class="mb-0">{{q.explanation}}</p>
+                                </div>
+                            </div>
+
+                            <div ng-if="exam.questions.length === 0" class="text-center py-5">
+                                <i class="fas fa-eye-slash fa-4x text-muted mb-3"></i>
+                                <h4 class="text-muted">Chưa có câu hỏi để xem trước</h4>
+                                <p class="text-muted">Hãy thêm câu hỏi trong tab "Soạn đề thi"</p>
+                            </div>
+
+                            <div class="mt-5 pt-4 border-top text-center text-muted">
+                                <p>--- Hết đề thi ---</p>
+                                <small>Được tạo bởi {{app.name}} • {{currentDate | date:'dd/MM/yyyy HH:mm'}}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Tab -->
+            <div ng-show="ui.activeTab === 'ai'" class="tab-content">
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="fas fa-robot me-2"></i>Tạo đề thi với AI
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-4">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label fw-bold">Topic / Chủ đề</label>
+                                        <input type="text" class="form-control" 
+                                               ng-model="aiConfig.topic"
+                                               placeholder="VD: English Grammar, Mathematics, Science..."
+                                               value="hello">
+                                        <small class="text-muted">Nhập chủ đề cho đề thi</small>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label fw-bold">Upload file PDF (Bắt buộc)</label>
+                                        <div class="input-group">
+                                            <input type="file" class="form-control" 
+                                                   onchange="angular.element(this).scope().handleAIFileUpload(this.files)"
+                                                   accept=".pdf">
+                                            <button class="btn btn-outline-danger" type="button" 
+                                                    ng-click="clearAIFile()" 
+                                                    ng-disabled="!aiConfig.file">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                        <div class="mt-2" ng-show="aiConfig.fileName">
+                                            <small class="text-success">
+                                                <i class="fas fa-file-pdf me-1"></i>
+                                                {{aiConfig.fileName}}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-4" ng-show="ui.uploadProgress > 0">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <small>Tiến độ xử lý AI</small>
+                                        <small>{{ui.uploadProgress}}%</small>
+                                    </div>
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated ai-progress-bar" 
+                                             role="progressbar" 
+                                             ng-style="{'width': ui.uploadProgress + '%'}">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row mb-4">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label fw-bold">Tổng số câu hỏi</label>
+                                        <input type="number" class="form-control" 
+                                               ng-model="aiConfig.totalQuestions"
+                                               min="1" max="50"
+                                               value="10">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label fw-bold">Thời gian (phút)</label>
+                                        <input type="number" class="form-control" 
+                                               ng-model="aiConfig.duration"
+                                               min="1" max="300"
+                                               value="60">
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">Phân bổ độ khó</label>
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <div class="input-group">
+                                                <span class="input-group-text bg-success text-white">
+                                                    <i class="fas fa-smile"></i>
+                                                </span>
+                                                <input type="number" class="form-control" 
+                                                       ng-model="aiConfig.levelDistribution.easy"
+                                                       min="0" 
+                                                       placeholder="Dễ"
+                                                       value="3">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="input-group">
+                                                <span class="input-group-text bg-warning text-white">
+                                                    <i class="fas fa-meh"></i>
+                                                </span>
+                                                <input type="number" class="form-control" 
+                                                       ng-model="aiConfig.levelDistribution.medium"
+                                                       min="0" 
+                                                       placeholder="Trung bình"
+                                                       value="5">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="input-group">
+                                                <span class="input-group-text bg-danger text-white">
+                                                    <i class="fas fa-frown"></i>
+                                                </span>
+                                                <input type="number" class="form-control" 
+                                                       ng-model="aiConfig.levelDistribution.hard"
+                                                       min="0" 
+                                                       placeholder="Khó"
+                                                       value="2">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">Phân bổ loại câu hỏi</label>
+                                    <div class="row g-3">
+                                        <div class="col-md-3">
+                                            <div class="input-group">
+                                                <span class="input-group-text bg-info text-white">
+                                                    <i class="fas fa-book-reader"></i>
+                                                </span>
+                                                <input type="number" class="form-control" 
+                                                       ng-model="aiConfig.typeDistribution.reading"
+                                                       min="0" 
+                                                       placeholder="Reading"
+                                                       value="2">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="input-group">
+                                                <span class="input-group-text bg-success text-white">
+                                                    <i class="fas fa-spell-check"></i>
+                                                </span>
+                                                <input type="number" class="form-control" 
+                                                       ng-model="aiConfig.typeDistribution.grammar"
+                                                       min="0" 
+                                                       placeholder="Grammar"
+                                                       value="3">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="input-group">
+                                                <span class="input-group-text bg-purple text-white">
+                                                    <i class="fas fa-book"></i>
+                                                </span>
+                                                <input type="number" class="form-control" 
+                                                       ng-model="aiConfig.typeDistribution.vocabulary"
+                                                       min="0" 
+                                                       placeholder="Vocabulary"
+                                                       value="3">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="input-group">
+                                                <span class="input-group-text bg-warning text-white">
+                                                    <i class="fas fa-headphones"></i>
+                                                </span>
+                                                <input type="number" class="form-control" 
+                                                       ng-model="aiConfig.typeDistribution.listening"
+                                                       min="0" 
+                                                       placeholder="Listening"
+                                                       value="2">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="text-center">
+                                    <button class="btn btn-primary btn-lg px-5 py-3" 
+                                            ng-click="generateWithAI()"
+                                            ng-disabled="ui.isLoading">
+                                        <i class="fas fa-robot me-2"></i>
+                                        <span ng-if="!ui.isLoading">AI Tạo đề thi (Yêu cầu file PDF)</span>
+                                        <span ng-if="ui.isLoading">
+                                            <i class="fas fa-spinner fa-spin me-2"></i>AI đang xử lý...
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <i class="fas fa-chart-bar me-2"></i>Thống kê cấu hình
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <small class="text-muted d-block mb-2">Tổng câu hỏi:</small>
+                                    <h4 class="text-primary">{{aiConfig.totalQuestions || 0}} câu</h4>
+                                </div>
+                                <div class="mb-3">
+                                    <small class="text-muted d-block mb-2">Phân bổ độ khó:</small>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="badge bg-success">Dễ: {{aiConfig.levelDistribution.easy || 0}}</span>
+                                        <span class="badge bg-warning">TB: {{aiConfig.levelDistribution.medium || 0}}</span>
+                                        <span class="badge bg-danger">Khó: {{aiConfig.levelDistribution.hard || 0}}</span>
+                                    </div>
+                                    <div ng-if="(aiConfig.levelDistribution.easy + aiConfig.levelDistribution.medium + aiConfig.levelDistribution.hard) !== aiConfig.totalQuestions" 
+                                         class="text-danger small mt-1">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        Tổng độ khó ({{aiConfig.levelDistribution.easy + aiConfig.levelDistribution.medium + aiConfig.levelDistribution.hard}}) không bằng tổng số câu ({{aiConfig.totalQuestions}})
+                                    </div>
+                                </div>
+                                <div>
+                                    <small class="text-muted d-block mb-2">Phân bổ loại:</small>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        <span class="badge bg-info">Đọc: {{aiConfig.typeDistribution.reading || 0}}</span>
+                                        <span class="badge bg-success">Ngữ pháp: {{aiConfig.typeDistribution.grammar || 0}}</span>
+                                        <span class="badge bg-purple">Từ vựng: {{aiConfig.typeDistribution.vocabulary || 0}}</span>
+                                        <span class="badge bg-warning">Nghe: {{aiConfig.typeDistribution.listening || 0}}</span>
+                                    </div>
+                                    <div ng-if="(aiConfig.typeDistribution.reading + aiConfig.typeDistribution.grammar + aiConfig.typeDistribution.vocabulary + aiConfig.typeDistribution.listening) !== aiConfig.totalQuestions" 
+                                         class="text-danger small mt-1">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        Tổng loại ({{aiConfig.typeDistribution.reading + aiConfig.typeDistribution.grammar + aiConfig.typeDistribution.vocabulary + aiConfig.typeDistribution.listening}}) không bằng tổng số câu ({{aiConfig.totalQuestions}})
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="fas fa-cogs me-2"></i>Cài đặt
+                            </div>
+                            <div class="card-body">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           ng-model="aiConfig.overwriteExisting"
+                                           id="overwriteCheck" checked>
+                                    <label class="form-check-label" for="overwriteCheck">
+                                        Ghi đè đề thi hiện tại
+                                    </label>
+                                </div>
+                                <div class="mt-3">
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        AI sẽ tạo câu hỏi dựa trên file PDF và cấu hình của bạn.
+                                        Tổng số câu phải khớp với tổng phân bổ.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Templates Tab -->
+            <div ng-show="ui.activeTab === 'templates'" class="tab-content">
+                <!-- Giữ nguyên nội dung -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-layer-group me-2"></i>Quản lý mẫu đề thi
+                        </h5>
+                        <div class="action-buttons">
+                            <button class="btn btn-success" ng-click="saveTemplate()">
+                                <i class="fas fa-plus me-1"></i>Lưu mẫu hiện tại
+                            </button>
+                            <button class="btn btn-outline-info" ng-click="importTemplate()">
+                                <i class="fas fa-file-import me-1"></i>Import mẫu
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Mẫu đề thi được lưu trong trình duyệt của bạn. Bạn có thể sửa, xóa, hoặc tải PDF.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div ng-if="templates.length === 0" class="text-center py-5">
+                            <i class="fas fa-save fa-4x text-muted mb-3"></i>
+                            <h4 class="text-muted">Chưa có mẫu nào</h4>
+                            <p class="text-muted mb-4">Lưu đề thi hiện tại để sử dụng lại sau này</p>
+                            <button class="btn btn-primary btn-lg" ng-click="saveTemplate()">
+                                <i class="fas fa-save me-2"></i>Lưu mẫu đầu tiên
+                            </button>
+                        </div>
+                        
+                        <div class="row g-3" ng-if="templates.length > 0">
+                            <div class="col-md-4" ng-repeat="template in templates">
+                                <div class="card h-100 template-card" ng-click="loadTemplate(template)">
+                                    <div class="card-body">
+                                        <div class="template-actions">
+                                            <button class="btn btn-sm btn-outline-warning" 
+                                                    ng-click="editTemplateContent(template, $event)"
+                                                    title="Sửa nội dung mẫu">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary" 
+                                                    ng-click="exportTemplateAsPDF(template, $event)"
+                                                    title="Xuất PDF">
+                                                <i class="fas fa-file-pdf"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" 
+                                                    ng-click="deleteTemplate(template.id, $event)"
+                                                    title="Xóa mẫu">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <h6 class="mb-2 text-primary">{{template.name}}</h6>
+                                        <p class="small text-muted mb-2">
+                                            <i class="fas fa-calendar me-1"></i>
+                                            {{template.createdAt | date:'dd/MM/yyyy HH:mm'}}
+                                        </p>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span class="badge bg-primary">
+                                                {{template.questionCount}} câu
+                                            </span>
+                                            <span class="badge bg-info">
+                                                {{template.subject || 'Không có'}}
+                                            </span>
+                                        </div>
+                                        <p class="small mb-0 text-muted">
+                                            <i class="fas fa-file-alt me-1"></i>
+                                            {{template.exam.title || 'Không có tiêu đề'}}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-dark text-white py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>{{app.name}}</h5>
+                    <p class="mb-0">Công cụ tạo đề thi thông minh với AI</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <p class="mb-0">
+                        © {{currentYear}} - Phiên bản {{app.version}}<br>
+                        <small>Powered by Khoi Nguyen</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
