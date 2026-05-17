@@ -737,11 +737,18 @@
                                                      class="option-item"
                                                      ng-class="{'correct': option.isCorrect}">
                                                     <div class="form-check" style="min-width: 30px;">
-                                                        <input class="form-check-input" 
-                                                               type="{{q.isMultipleChoice ? 'checkbox' : 'radio'}}"
-                                                               name="correct_{{q.id}}"
-                                                               ng-model="option.isCorrect"
-                                                               ng-change="updatePreview()">
+                                                        <input ng-if="q.isMultipleChoice"
+                                                            class="form-check-input" 
+                                                            type="checkbox"
+                                                            ng-model="option.isCorrect"
+                                                            ng-change="updatePreview()">
+                                                            
+                                                        <input ng-if="!q.isMultipleChoice"
+                                                            class="form-check-input" 
+                                                            type="radio"
+                                                            name="correct_{{q.id}}"
+                                                            ng-checked="option.isCorrect"
+                                                            ng-click="setSingleCorrectAnswer(q, $index)">
                                                     </div>
                                                     <div class="option-label">{{getOptionLetter($index)}}.</div>
                                                     <div style="flex: 1; min-width: 150px;">

@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  web-app:
+    build: .
+    image: exam-generator-ui:1.0
+    container_name: exam-generator-ui-container
+    ports:
+      - "80:80"  # Chạy trên cổng 80 của máy thật
+    restart: always

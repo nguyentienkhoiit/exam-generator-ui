@@ -253,6 +253,33 @@ angular.module('pdfExamApp', ['ui.sortable'])
       $scope.updatePreview();
     };
 
+    // ================ XỬ LÝ KHI CHUYỂN ĐỔI MULTIPLE/SINGLE ================
+    $scope.onMultipleChoiceToggle = function(question) {
+      // (Giữ nguyên code cũ của hàm này...)
+      if (!question.isMultipleChoice) {
+        var firstCorrectIndex = -1;
+        for (var i = 0; i < question.options.length; i++) {
+          if (question.options[i].isCorrect) {
+            firstCorrectIndex = i;
+            break;
+          }
+        }
+        angular.forEach(question.options, function(opt, idx) {
+          opt.isCorrect = (idx === firstCorrectIndex);
+        });
+      }
+      $scope.updatePreview();
+    };
+
+    // THÊM HÀM MỚI NÀY VÀO ĐÂY:
+    // Xử lý khi click vào đáp án đúng cho loại chỉ có 1 đáp án (Radio)
+    $scope.setSingleCorrectAnswer = function(question, selectedIndex) {
+      angular.forEach(question.options, function(opt, idx) {
+        opt.isCorrect = (idx === selectedIndex);
+      });
+      $scope.calculateStats();
+      $scope.updatePreview();
+    };
     // ================ TÍNH NĂNG ẨN/HIỆN CÂU HỎI ================
     
     $scope.toggleQuestionVisibility = function(question) {
